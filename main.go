@@ -25,15 +25,16 @@ import (
 )
 
 type VirtualDev struct {
-	Deck   streamdeck.Device
-	Page   int
-	IsOpen bool
-	Config []api.Page
+	Deck    streamdeck.Device
+	Page    int
+	Profile string
+	IsOpen  bool
+	Config  []api.Page
 }
 
 var devs map[string]*VirtualDev
 var config *api.Config
-var migrateConfig = false
+var migrateConfig = 0
 var configPath string
 var disconnectSem = semaphore.NewWeighted(1)
 var connectSem = semaphore.NewWeighted(1)
@@ -59,7 +60,8 @@ func main() {
 		configPath = basePath + string(os.PathSeparator) + ".streamdeck-config.json"
 	}
 	cleanupHook()
-	go InitDBUS()
+	//go InitDBUS()
+	go InitWS()
 	examples.RegisterBaseModules()
 	loadConfig()
 	devs = make(map[string]*VirtualDev)
@@ -165,10 +167,14 @@ func openDevice() (*VirtualDev, error) {
 		return &VirtualDev{}, err
 	}
 	devNo := -1
-	if migrateConfig {
-		config.Decks[0].Serial = device.Serial
+	if migrateConfig != 0 {
+		switch migrateConfig {
+		case 1:
+			config.Decks[0].Serial = device.Serial
+			break
+		}
 		_ = SaveConfig()
-		migrateConfig = false
+		migrateConfig = 0
 	}
 	for i := range config.Decks {
 		if config.Decks[i].Serial == device.Serial {
@@ -182,10 +188,22 @@ func openDevice() (*VirtualDev, error) {
 			page = append(page, api.Key{})
 		}
 		pages = append(pages, page)
-		config.Decks = append(config.Decks, api.Deck{Serial: device.Serial, Pages: pages})
+		config.Decks = append(config.Decks, api.Deck{
+			Serial: device.Serial,
+			Profiles: []api.Profile{{
+				Name:  "default Profile",
+				Pages: pages,
+			}},
+		})
 		devNo = len(config.Decks) - 1
 	}
-	dev := &VirtualDev{Deck: device, Page: 0, IsOpen: true, Config: config.Decks[devNo].Pages}
+	dev := &VirtualDev{
+		Deck:    device,
+		Page:    0,
+		Profile: config.Decks[devNo].Profiles[0].Name,
+		IsOpen:  true,
+		Config:  config.Decks[devNo].Profiles[0].Pages,
+	}
 	devs[device.Serial] = dev
 	log.Println("Device (" + device.Serial + ") connected")
 	return dev, nil
@@ -225,16 +243,36 @@ func readConfig() (*api.Config, error) {
 	}
 	var config api.Config
 	err = json.Unmarshal(data, &config)
-	if err != nil || config.Decks == nil {
-		var deprecatedConfig api.DepracatedConfig
-		err = json.Unmarshal(data, &deprecatedConfig)
-		if err != nil {
-			return &api.Config{}, err
-		}
-		config = api.Config{Modules: deprecatedConfig.Modules, Decks: []api.Deck{{Pages: deprecatedConfig.Pages, Serial: ""}}}
-		migrateConfig = true
+	if err != nil {
+		return &api.Config{}, err
 	}
+	config, err = checkConfig(data, config)
 	return &config, nil
+}
+
+func checkConfig(data []byte, config api.Config) (api.Config, error) {
+	if config.Decks == nil {
+		var deprecatedConfig api.DepracatedConfig
+		err := json.Unmarshal(data, &deprecatedConfig)
+		if err != nil {
+			return api.Config{}, err
+		}
+		config = api.Config{Modules: deprecatedConfig.Modules, Decks: []api.Deck{{Serial: "", Profiles: []api.Profile{{Pages: deprecatedConfig.Pages, Name: "default profile"}}}}}
+		migrateConfig = 1
+	} else if config.Decks[0].Profiles == nil {
+		var deprecatedConfig api.DepracatedConfig_v2
+		err := json.Unmarshal(data, &deprecatedConfig)
+		if err != nil {
+			return api.Config{}, err
+		}
+		config = api.Config{Modules: deprecatedConfig.Modules, Decks: []api.Deck{}}
+		for _, deck := range deprecatedConfig.Decks {
+			newDecks := api.Deck{Serial: deck.Serial, Profiles: []api.Profile{{Name: "default profile", Pages: deck.Pages}}}
+			config.Decks = append(config.Decks, newDecks)
+		}
+		migrateConfig = 2
+	}
+	return config, nil
 }
 
 func runCommand(command string) {
@@ -293,7 +331,13 @@ func SetConfig(configString string) error {
 		dev := devs[s]
 		for i := range config.Decks {
 			if dev.Deck.Serial == config.Decks[i].Serial {
-				dev.Config = config.Decks[i].Pages
+				for _, profile := range config.Decks[i].Profiles {
+					if profile.Name == dev.Profile {
+						dev.Config = profile.Pages
+						break
+					}
+				}
+				break
 			}
 		}
 		SetPage(dev, devs[s].Page)
@@ -308,7 +352,13 @@ func ReloadConfig() error {
 		dev := devs[s]
 		for i := range config.Decks {
 			if dev.Deck.Serial == config.Decks[i].Serial {
-				dev.Config = config.Decks[i].Pages
+				for _, profile := range config.Decks[i].Profiles {
+					if profile.Name == dev.Profile {
+						dev.Config = profile.Pages
+						break
+					}
+				}
+				break
 			}
 		}
 		SetPage(dev, devs[s].Page)
@@ -317,6 +367,7 @@ func ReloadConfig() error {
 }
 
 func SaveConfig() error {
+	return nil
 	f, err := os.OpenFile(configPath, os.O_TRUNC|os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
@@ -337,6 +388,7 @@ func SaveConfig() error {
 	}
 	return nil
 }
+
 func unmountHandlers() {
 	for s := range devs {
 		dev := devs[s]
