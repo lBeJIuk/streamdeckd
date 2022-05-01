@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -17,6 +18,7 @@ import (
 	_ "image/png"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -60,7 +62,7 @@ func main() {
 		configPath = basePath + string(os.PathSeparator) + ".streamdeck-config.json"
 	}
 	cleanupHook()
-	//go InitDBUS()
+	go InitDBUS()
 	go InitWS()
 	examples.RegisterBaseModules()
 	loadConfig()
@@ -270,6 +272,32 @@ func checkConfig(data []byte, config api.Config) (api.Config, error) {
 			newDecks := api.Deck{Serial: deck.Serial, Profiles: []api.Profile{{Name: "default profile", Pages: deck.Pages}}}
 			config.Decks = append(config.Decks, newDecks)
 		}
+		for _, deck := range config.Decks {
+			for _, profile := range deck.Profiles {
+				for _, page := range profile.Pages {
+					for _, key := range page {
+						if key.Icon != "" {
+							img, err := ioutil.ReadFile(key.Icon)
+							if err != nil {
+								var base64Encoding string
+								// Determine the content type of the image file
+								mimeType := http.DetectContentType(img)
+								// Prepend the appropriate URI scheme header depending on the MIME type
+								switch mimeType {
+								case "image/jpeg":
+									base64Encoding += "data:image/jpeg;base64,"
+								case "image/png":
+									base64Encoding += "data:image/png;base64,"
+								}
+								// Append the base64 encoded output
+								base64Encoding += base64.StdEncoding.EncodeToString(img)
+								key.Icon = base64Encoding
+							}
+						}
+					}
+				}
+			}
+		}
 		migrateConfig = 2
 	}
 	return config, nil
@@ -367,7 +395,6 @@ func ReloadConfig() error {
 }
 
 func SaveConfig() error {
-	return nil
 	f, err := os.OpenFile(configPath, os.O_TRUNC|os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err

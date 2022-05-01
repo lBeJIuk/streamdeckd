@@ -1,33 +1,44 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"github.com/unix-streamdeck/api"
 	_ "github.com/unix-streamdeck/driver"
 	"github.com/unix-streamdeck/streamdeckd/handlers"
 	"golang.org/x/sync/semaphore"
 	"image"
 	"image/draw"
+	"io"
 	"log"
 	"os"
 	"strings"
 )
 
-
 var sem = semaphore.NewWeighted(int64(1))
 
 func LoadImage(dev *VirtualDev, path string) (image.Image, error) {
-	f, err := os.Open(path)
+	var img image.Image
+	var r io.Reader
+	if strings.HasPrefix(path, "data:image/") {
+		path = strings.Split(path, ",")[1]
+		imgBytes, err := base64.StdEncoding.DecodeString(path)
+		if err != nil {
+			return nil, err
+		}
+		r = bytes.NewReader(imgBytes)
+	} else {
+		r, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
+	}
+	img, _, err := image.Decode(r)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-
 	return api.ResizeImage(img, int(dev.Deck.Pixels)), nil
 }
 
@@ -46,7 +57,7 @@ func SetImage(dev *VirtualDev, img image.Image, i int, page int) {
 				disconnect(dev)
 			} else if strings.Contains(err.Error(), "dimensions") {
 				log.Println(err)
-			}else {
+			} else {
 				log.Println(err)
 			}
 		}

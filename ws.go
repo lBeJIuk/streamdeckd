@@ -8,6 +8,11 @@ import (
 	"net/http"
 )
 
+type Message struct {
+	Type string `json:"type"`
+	Data string `json:"data,omitempty"`
+}
+
 func InitWS() {
 	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, _, _, err := ws.UpgradeHTTP(r, w)
@@ -18,20 +23,31 @@ func InitWS() {
 			defer conn.Close()
 
 			for {
-				msg, op, err := wsutil.ReadClientData(conn)
+				rawMsg, op, err := wsutil.ReadClientData(conn)
 				if err != nil {
 					log.Printf("Error on ReadClientData: %v", err)
 				}
-				log.Printf("msg: %v", msg)
-
-				configString, err := json.Marshal(config)
+				msg := new(Message)
+				err = json.Unmarshal(rawMsg, msg)
 				if err != nil {
-					log.Printf("Error on config marshaling: %v", err)
+					log.Printf("Error on Unmarshal: %v", err)
+					return
 				}
+				switch msg.Type {
+				case "getConfig":
+					configString, _ := json.Marshal(config)
+					resp := Message{
+						Type: "getConfig",
+						Data: string(configString),
+					}
+					respString, _ := json.Marshal(resp)
+					err = wsutil.WriteServerMessage(conn, op, respString)
+					if err != nil {
+						log.Printf("Error on WriteServerMessage: %v", err)
+						return
+					}
 
-				err = wsutil.WriteServerMessage(conn, op, configString)
-				if err != nil {
-					log.Printf("Error on WriteServerMessage: %v", err)
+					break
 				}
 			}
 		}()
