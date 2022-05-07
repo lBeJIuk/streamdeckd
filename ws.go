@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/unix-streamdeck/api"
 	"log"
 	"net/http"
 )
@@ -46,7 +47,17 @@ func InitWS() {
 						log.Printf("Error on WriteServerMessage: %v", err)
 						return
 					}
-
+					break
+				case "setConfig":
+					newConfig := new(api.Config)
+					err = json.Unmarshal([]byte(msg.Data), newConfig)
+					if err != nil {
+						log.Printf("Error on Unmarshal: %v", err)
+						return
+					}
+					config = newConfig
+					_ = SaveConfig()
+					_ = ReloadConfig()
 					break
 				}
 			}
