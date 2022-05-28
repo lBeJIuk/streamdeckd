@@ -1,6 +1,6 @@
-module github.com/unix-streamdeck/streamdeckd
+module github.com/lBeJIuk/streamdeckd
 
-go 1.17
+go 1.18
 
 require (
 	github.com/gobwas/ws v1.1.0
@@ -26,4 +26,4 @@ require (
 	golang.org/x/sys v0.0.0-20210816074244-15123e1e1f71 // indirect
 )
 
-replace github.com/unix-streamdeck/api v1.0.1 => github.com/lBeJIuk/api v1.0.4
+replace github.com/unix-streamdeck/api v1.0.1 => ../api/

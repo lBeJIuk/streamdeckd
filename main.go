@@ -2,39 +2,27 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
+	"github.com/lBeJIuk/streamdeckd/handlers"
+	"github.com/lBeJIuk/streamdeckd/utils"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/unix-streamdeck/api"
 	"github.com/unix-streamdeck/driver"
-	"github.com/unix-streamdeck/streamdeckd/handlers"
-	"github.com/unix-streamdeck/streamdeckd/handlers/examples"
 	"golang.org/x/sync/semaphore"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
 )
 
-type VirtualDev struct {
-	Deck    streamdeck.Device
-	Page    int
-	Profile string
-	IsOpen  bool
-	Config  []api.Page
-}
-
-var devs map[string]*VirtualDev
+var devs map[string]*utils.VirtualDev
 var config *api.Config
 var migrateConfig = 0
 var configPath string
@@ -64,9 +52,9 @@ func main() {
 	cleanupHook()
 	go InitDBUS()
 	go InitWS()
-	examples.RegisterBaseModules()
+	handlers.InitHandlers()
 	loadConfig()
-	devs = make(map[string]*VirtualDev)
+	devs = make(map[string]*utils.VirtualDev)
 	attemptConnection()
 }
 
@@ -85,10 +73,10 @@ func checkOtherRunningInstances() {
 
 func attemptConnection() {
 	for isRunning {
-		dev := &VirtualDev{}
+		dev := &utils.VirtualDev{}
 		dev, _ = openDevice()
 		if dev.IsOpen {
-			SetPage(dev, dev.Page)
+			RenderPage(dev, dev.Page)
 			found := false
 			for i := range sDInfo {
 				if sDInfo[i].Serial == dev.Deck.Serial {
@@ -104,13 +92,34 @@ func attemptConnection() {
 					Serial:   dev.Deck.Serial,
 				})
 			}
-			go Listen(dev)
+			go listen(dev)
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
 }
 
-func disconnect(dev *VirtualDev) {
+func listen(dev *utils.VirtualDev) {
+	kch, err := dev.Deck.ReadKeys()
+	if err != nil {
+		log.Println(err)
+	}
+	for dev.IsOpen {
+		select {
+		case k, ok := <-kch:
+			if !ok {
+				disconnect(dev)
+				return
+			}
+			if k.Pressed == true {
+				if len(dev.Config)-1 >= dev.Page && len(dev.Config[dev.Page])-1 >= int(k.Index) {
+					HandleInput(dev, &dev.Config[dev.Page][k.Index], dev.Page)
+				}
+			}
+		}
+	}
+}
+
+func disconnect(dev *utils.VirtualDev) {
 	ctx := context.Background()
 	err := disconnectSem.Acquire(ctx, 1)
 	if err != nil {
@@ -126,19 +135,19 @@ func disconnect(dev *VirtualDev) {
 	unmountDevHandlers(dev)
 }
 
-func openDevice() (*VirtualDev, error) {
+func openDevice() (*utils.VirtualDev, error) {
 	ctx := context.Background()
 	err := connectSem.Acquire(ctx, 1)
 	if err != nil {
-		return &VirtualDev{}, err
+		return &utils.VirtualDev{}, err
 	}
 	defer connectSem.Release(1)
 	d, err := streamdeck.Devices()
 	if err != nil {
-		return &VirtualDev{}, err
+		return &utils.VirtualDev{}, err
 	}
 	if len(d) == 0 {
-		return &VirtualDev{}, errors.New("No streamdeck devices found")
+		return &utils.VirtualDev{}, errors.New("No streamdeck devices found")
 	}
 	device := streamdeck.Device{Serial: ""}
 	for i := range d {
@@ -150,7 +159,7 @@ func openDevice() (*VirtualDev, error) {
 			} else if d[i].Serial == s && !devs[s].IsOpen {
 				err = d[i].Open()
 				if err != nil {
-					return &VirtualDev{}, err
+					return &utils.VirtualDev{}, err
 				}
 				devs[s].Deck = d[i]
 				devs[s].IsOpen = true
@@ -162,11 +171,11 @@ func openDevice() (*VirtualDev, error) {
 		}
 	}
 	if len(device.Serial) != 12 {
-		return &VirtualDev{}, errors.New("No streamdeck devices found")
+		return &utils.VirtualDev{}, errors.New("No streamdeck devices found")
 	}
 	err = device.Open()
 	if err != nil {
-		return &VirtualDev{}, err
+		return &utils.VirtualDev{}, err
 	}
 	devNo := -1
 	if migrateConfig != 0 {
@@ -187,7 +196,7 @@ func openDevice() (*VirtualDev, error) {
 		var pages []api.Page
 		page := api.Page{}
 		for i := 0; i < int(device.Rows)*int(device.Columns); i++ {
-			page = append(page, api.Key{})
+			page = append(page, api.KeyConfig{})
 		}
 		pages = append(pages, page)
 		config.Decks = append(config.Decks, api.Deck{
@@ -199,7 +208,7 @@ func openDevice() (*VirtualDev, error) {
 		})
 		devNo = len(config.Decks) - 1
 	}
-	dev := &VirtualDev{
+	dev := &utils.VirtualDev{
 		Deck:    device,
 		Page:    0,
 		Profile: config.Decks[devNo].Profiles[0].Name,
@@ -231,95 +240,29 @@ func loadConfig() {
 			log.Println(err)
 		}
 	}
-	if len(config.Modules) > 0 {
-		for _, module := range config.Modules {
-			handlers.LoadModule(module)
-		}
-	}
+	//if len(config.Modules) > 0 {
+	//	for _, module := range config.Modules {
+	//		handlers.LoadModule(module)
+	//	}
+	//}
 }
 
 func readConfig() (*api.Config, error) {
-	data, err := ioutil.ReadFile(configPath)
+	rawConfig, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return &api.Config{}, err
 	}
 	var config api.Config
-	err = json.Unmarshal(data, &config)
+	err = json.Unmarshal(rawConfig, &config)
 	if err != nil {
 		return &api.Config{}, err
 	}
-	config, err = checkConfig(data, config)
+	config, err = checkConfig(rawConfig, config)
 	return &config, nil
 }
 
-func checkConfig(data []byte, config api.Config) (api.Config, error) {
-	if config.Decks == nil {
-		var deprecatedConfig api.DepracatedConfig
-		err := json.Unmarshal(data, &deprecatedConfig)
-		if err != nil {
-			return api.Config{}, err
-		}
-		config = api.Config{Modules: deprecatedConfig.Modules, Decks: []api.Deck{{Serial: "", Profiles: []api.Profile{{Pages: deprecatedConfig.Pages, Name: "default profile"}}}}}
-		migrateConfig = 1
-	} else if config.Decks[0].Profiles == nil {
-		var deprecatedConfig api.DepracatedConfig_v2
-		err := json.Unmarshal(data, &deprecatedConfig)
-		if err != nil {
-			return api.Config{}, err
-		}
-		config = api.Config{Modules: deprecatedConfig.Modules, Decks: []api.Deck{}}
-		for _, deck := range deprecatedConfig.Decks {
-			newDecks := api.Deck{Serial: deck.Serial, Profiles: []api.Profile{{Name: "default profile", Pages: deck.Pages}}}
-			config.Decks = append(config.Decks, newDecks)
-		}
-		for _, deck := range config.Decks {
-			for _, profile := range deck.Profiles {
-				for _, page := range profile.Pages {
-					for _, key := range page {
-						if key.Icon != "" {
-							img, err := ioutil.ReadFile(key.Icon)
-							if err != nil {
-								var base64Encoding string
-								// Determine the content type of the image file
-								mimeType := http.DetectContentType(img)
-								// Prepend the appropriate URI scheme header depending on the MIME type
-								switch mimeType {
-								case "image/jpeg":
-									base64Encoding += "data:image/jpeg;base64,"
-								case "image/png":
-									base64Encoding += "data:image/png;base64,"
-								}
-								// Append the base64 encoded output
-								base64Encoding += base64.StdEncoding.EncodeToString(img)
-								key.Icon = base64Encoding
-							}
-						}
-					}
-				}
-			}
-		}
-		migrateConfig = 2
-	}
+func checkConfig(rawConfig []byte, config api.Config) (api.Config, error) {
 	return config, nil
-}
-
-func runCommand(command string) {
-	go func() {
-		cmd := exec.Command("/bin/sh", "-c", "/usr/bin/nohup "+command)
-
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid:   true,
-			Pgid:      0,
-			Pdeathsig: syscall.SIGHUP,
-		}
-		if err := cmd.Start(); err != nil {
-			fmt.Println("There was a problem running ", command, ":", err)
-		} else {
-			pid := cmd.Process.Pid
-			cmd.Process.Release()
-			fmt.Println(command, " has been started with pid", pid)
-		}
-	}()
 }
 
 func cleanupHook() {
@@ -368,7 +311,7 @@ func SetConfig(configString string) error {
 				break
 			}
 		}
-		SetPage(dev, devs[s].Page)
+		RenderPage(dev, devs[s].Page)
 	}
 	return nil
 }
@@ -389,7 +332,7 @@ func ReloadConfig() error {
 				break
 			}
 		}
-		SetPage(dev, devs[s].Page)
+		RenderPage(dev, devs[s].Page)
 	}
 	return nil
 }
@@ -423,23 +366,32 @@ func unmountHandlers() {
 	}
 }
 
-func unmountDevHandlers(dev *VirtualDev) {
+func unmountDevHandlers(dev *utils.VirtualDev) {
 	for i := range dev.Config {
 		unmountPageHandlers(dev.Config[i])
 	}
 }
 
 func unmountPageHandlers(page api.Page) {
-	for i2 := 0; i2 < len(page); i2++ {
-		key := &page[i2]
-		if key.IconHandlerStruct != nil {
-			log.Printf("Stopping %s\n", key.IconHandler)
-			if key.IconHandlerStruct.IsRunning() {
-				go func() {
-					key.IconHandlerStruct.Stop()
-					log.Printf("Stopped %s\n", key.IconHandler)
-				}()
-			}
-		}
+	//for i2 := 0; i2 < len(page); i2++ {
+	//	key := &page[i2]
+	//	if key.IconHandlerStruct != nil {
+	//		log.Printf("Stopping %s\n", key.IconHandler)
+	//		if key.IconHandlerStruct.IsRunning() {
+	//			go func() {
+	//				key.IconHandlerStruct.Stop()
+	//				log.Printf("Stopped %s\n", key.IconHandler)
+	//			}()
+	//		}
+	//	}
+	//}
+}
+
+func HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+	handler, err := handlers.GetHandler(key)
+	if err != nil {
+		log.Println(err)
+		return
 	}
+	handler.HandleInput(dev, key, page)
 }

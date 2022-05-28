@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/godbus/dbus/v5"
+	"github.com/lBeJIuk/streamdeckd/utils"
 	"github.com/unix-streamdeck/api"
-	"github.com/unix-streamdeck/streamdeckd/handlers"
 	"log"
 )
 
@@ -45,7 +45,7 @@ func (StreamDeckDBus) SetPage(serial string, page int) *dbus.Error {
 	for s := range devs {
 		if devs[s].Deck.Serial == serial {
 			dev := devs[s]
-			SetPage(dev, page)
+			RenderPage(dev, page)
 			return nil
 		}
 	}
@@ -68,17 +68,17 @@ func (StreamDeckDBus) CommitConfig() *dbus.Error {
 	return nil
 }
 
-func (StreamDeckDBus) GetModules() (string, *dbus.Error) {
-	var modules []api.Module
-	for _, module := range handlers.AvailableModules() {
-		modules = append(modules, api.Module{Name: module.Name, IconFields: module.IconFields, KeyFields: module.KeyFields, IsIcon: module.NewIcon != nil, IsKey: module.NewKey != nil})
-	}
-	modulesString, err := json.Marshal(modules)
-	if err != nil {
-		return "", dbus.MakeFailedError(err)
-	}
-	return string(modulesString), nil
-}
+//func (StreamDeckDBus) GetModules() (string, *dbus.Error) {
+//	var modules []api.Module
+//	for _, module := range handlers.AvailableModules() {
+//		modules = append(modules, api.Module{Name: module.Name, IconFields: module.IconFields, KeyFields: module.KeyFields, IsIcon: module.NewIcon != nil, IsKey: module.NewKey != nil})
+//	}
+//	modulesString, err := json.Marshal(modules)
+//	if err != nil {
+//		return "", dbus.MakeFailedError(err)
+//	}
+//	return string(modulesString), nil
+//}
 
 func (StreamDeckDBus) PressButton(serial string, keyIndex int) *dbus.Error {
 	dev, ok := devs[serial]
@@ -112,7 +112,7 @@ func InitDBUS() error {
 	select {}
 }
 
-func EmitPage(dev *VirtualDev, page int) {
+func EmitPage(dev *utils.VirtualDev, page int) {
 	if conn != nil {
 		conn.Emit("/com/unixstreamdeck/streamdeckd", "com.unixstreamdeck.streamdeckd.Page", dev.Deck.Serial, page)
 	}

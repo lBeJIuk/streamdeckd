@@ -1,56 +1,31 @@
 package handlers
 
 import (
+	"errors"
+	"github.com/lBeJIuk/streamdeckd/utils"
 	"github.com/unix-streamdeck/api"
-	"log"
-	"plugin"
 )
 
-type Module struct {
-	Name	string
-	NewIcon func() api.IconHandler
-	NewKey func() api.KeyHandler
-	IconFields []api.Field
-	KeyFields []api.Field
+type Handler interface {
+	GetType() string
+	RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int)
+	HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int)
 }
 
+var handlers []Handler
 
-
-var modules []Module
-
-
-func AvailableModules() []Module {
-	return modules
+func InitHandlers() {
+	handlers = []Handler{
+		&CommandHandler,
+		&BrowserHandler,
+	}
 }
 
-func RegisterModule(m Module) {
-	for _, module := range modules {
-		if module.Name == m.Name {
-			log.Println("Module already loaded: " + m.Name)
-			return
+func GetHandler(key *api.KeyConfig) (Handler, error) {
+	for _, handler := range handlers {
+		if handler.GetType() == key.Type {
+			return handler, nil
 		}
 	}
-	log.Println("Loaded module " + m.Name)
-	modules = append(modules, m)
-}
-
-func LoadModule(path string) {
-	plug, err := plugin.Open(path)
-	if err != nil {
-		//log.Println("Failed to load module: " + path)
-		log.Println(err)
-		return
-	}
-	mod, err := plug.Lookup("GetModule")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	var modMethod func() Module
-	modMethod, ok := mod.(func() Module)
-	if !ok {
-		log.Println("Failed to load module: " + path)
-		return
-	}
-	RegisterModule(modMethod())
+	return &DummyHandler{}, errors.New("No handler found.")
 }
