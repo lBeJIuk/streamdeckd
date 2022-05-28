@@ -17,16 +17,44 @@ import (
 	"syscall"
 )
 
-type DummyHandler struct{}
-
-func (handler *DummyHandler) GetType() string {
-	return ""
-}
-func (handler *DummyHandler) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-}
-func (handler *DummyHandler) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {}
-
 var sem = semaphore.NewWeighted(int64(1))
+
+type DefaultOptionsStruct struct {
+	Icon            string `json:"icon,omitempty"`
+	BackgroundColor string `json:"backgroundColor,omitempty"`
+	PressedIcon     string `json:"pressedIcon,omitempty"`
+	Text            string `json:"text,omitempty"`
+	TextColor       string `json:"textColor,omitempty"`
+	TextSize        int    `json:"textSize,omitempty"`
+	TextAlignment   string `json:"textAlignment,omitempty"`
+}
+type DefaultOptions interface {
+	GetIcon() string
+	GetBackgroundColor() string
+	GetText() string
+	GetTextColor() string
+	GetTextSize() int
+	GetTextAlignment() string
+}
+
+func (defaultOptions *DefaultOptionsStruct) GetIcon() string {
+	return defaultOptions.Icon
+}
+func (defaultOptions *DefaultOptionsStruct) GetText() string {
+	return defaultOptions.Text
+}
+func (defaultOptions *DefaultOptionsStruct) GetTextSize() int {
+	return defaultOptions.TextSize
+}
+func (defaultOptions *DefaultOptionsStruct) GetTextAlignment() string {
+	return defaultOptions.TextAlignment
+}
+func (defaultOptions *DefaultOptionsStruct) GetBackgroundColor() string {
+	return defaultOptions.BackgroundColor
+}
+func (defaultOptions *DefaultOptionsStruct) GetTextColor() string {
+	return defaultOptions.TextColor
+}
 
 func loadImage(dev *utils.VirtualDev, path string) (image.Image, error) {
 	path = strings.Split(path, ",")[1]
@@ -41,7 +69,6 @@ func loadImage(dev *utils.VirtualDev, path string) (image.Image, error) {
 	}
 	return api.ResizeImage(img, int(dev.Deck.Pixels)), nil
 }
-
 func setImage(dev *utils.VirtualDev, img image.Image, i int, page int) {
 	ctx := context.Background()
 	err := sem.Acquire(ctx, 1)
@@ -63,26 +90,6 @@ func setImage(dev *utils.VirtualDev, img image.Image, i int, page int) {
 		}
 	}
 }
-
-type DefaultOptionsStruct struct {
-	Icon            string `json:"icon,omitempty"`
-	BackgroundColor string `json:"backgroundColor,omitempty"`
-	PressedIcon     string `json:"pressedIcon,omitempty"`
-	Text            string `json:"text,omitempty"`
-	TextColor       string `json:"textColor,omitempty"`
-	TextSize        int    `json:"textSize,omitempty"`
-	TextAlignment   string `json:"textAlignment,omitempty"`
-}
-
-type DefaultOptions interface {
-	GetIcon() string
-	GetBackgroundColor() string
-	GetText() string
-	GetTextColor() string
-	GetTextSize() int
-	GetTextAlignment() string
-}
-
 func setKeyImage(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, options DefaultOptions) {
 	if key.CachedImage == nil {
 		icon := options.GetIcon()

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"github.com/lBeJIuk/streamdeckd/handlers"
+	_interface "github.com/lBeJIuk/streamdeckd/interface"
 	"github.com/lBeJIuk/streamdeckd/utils"
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/unix-streamdeck/api"
@@ -35,6 +36,7 @@ var basicConfig = api.Config{
 	},
 }
 var isRunning = true
+var sDInfo []api.StreamDeckInfo
 
 func main() {
 	checkOtherRunningInstances()
@@ -50,12 +52,18 @@ func main() {
 		configPath = basePath + string(os.PathSeparator) + ".streamdeck-config.json"
 	}
 	cleanupHook()
-	go InitDBUS()
+	//go dbus.InitDBUS()
 	go InitWS()
-	handlers.InitHandlers()
 	loadConfig()
 	devs = make(map[string]*utils.VirtualDev)
 	attemptConnection()
+}
+func initHandlers(dev *utils.VirtualDev) {
+	dev.Handlers = []utils.Handler{
+		&handlers.CommandHandler,
+		&handlers.BrowserHandler,
+		&handlers.ChangePageHandler,
+	}
 }
 
 func checkOtherRunningInstances() {
@@ -76,7 +84,8 @@ func attemptConnection() {
 		dev := &utils.VirtualDev{}
 		dev, _ = openDevice()
 		if dev.IsOpen {
-			RenderPage(dev, dev.Page)
+			initHandlers(dev)
+			_interface.RenderPage(dev, dev.Page)
 			found := false
 			for i := range sDInfo {
 				if sDInfo[i].Serial == dev.Deck.Serial {
@@ -92,6 +101,8 @@ func attemptConnection() {
 					Serial:   dev.Deck.Serial,
 				})
 			}
+			//dbus.SetsDInfo(sDInfo)
+			//dbus.SetConfig(config)
 			go listen(dev)
 		}
 		time.Sleep(250 * time.Millisecond)
@@ -132,7 +143,7 @@ func disconnect(dev *utils.VirtualDev) {
 	log.Println("Device (" + dev.Deck.Serial + ") disconnected")
 	_ = dev.Deck.Close()
 	dev.IsOpen = false
-	unmountDevHandlers(dev)
+	_interface.UnmountDevHandlers(dev)
 }
 
 func openDevice() (*utils.VirtualDev, error) {
@@ -272,7 +283,7 @@ func cleanupHook() {
 		<-sigs
 		log.Println("Cleaning up")
 		isRunning = false
-		unmountHandlers()
+		_interface.UnmountHandlers(devs)
 		var err error
 		for s := range devs {
 			if devs[s].IsOpen {
@@ -291,7 +302,7 @@ func cleanupHook() {
 }
 
 func SetConfig(configString string) error {
-	unmountHandlers()
+	_interface.UnmountHandlers(devs)
 	var err error
 	config = nil
 	err = json.Unmarshal([]byte(configString), &config)
@@ -311,13 +322,13 @@ func SetConfig(configString string) error {
 				break
 			}
 		}
-		RenderPage(dev, devs[s].Page)
+		_interface.RenderPage(dev, devs[s].Page)
 	}
 	return nil
 }
 
 func ReloadConfig() error {
-	unmountHandlers()
+	_interface.UnmountHandlers(devs)
 	loadConfig()
 	for s := range devs {
 		dev := devs[s]
@@ -332,7 +343,7 @@ func ReloadConfig() error {
 				break
 			}
 		}
-		RenderPage(dev, devs[s].Page)
+		_interface.RenderPage(dev, devs[s].Page)
 	}
 	return nil
 }
@@ -359,36 +370,8 @@ func SaveConfig() error {
 	return nil
 }
 
-func unmountHandlers() {
-	for s := range devs {
-		dev := devs[s]
-		unmountDevHandlers(dev)
-	}
-}
-
-func unmountDevHandlers(dev *utils.VirtualDev) {
-	for i := range dev.Config {
-		unmountPageHandlers(dev.Config[i])
-	}
-}
-
-func unmountPageHandlers(page api.Page) {
-	//for i2 := 0; i2 < len(page); i2++ {
-	//	key := &page[i2]
-	//	if key.IconHandlerStruct != nil {
-	//		log.Printf("Stopping %s\n", key.IconHandler)
-	//		if key.IconHandlerStruct.IsRunning() {
-	//			go func() {
-	//				key.IconHandlerStruct.Stop()
-	//				log.Printf("Stopped %s\n", key.IconHandler)
-	//			}()
-	//		}
-	//	}
-	//}
-}
-
 func HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
-	handler, err := handlers.GetHandler(key)
+	handler, err := dev.GetHandler(key)
 	if err != nil {
 		log.Println(err)
 		return

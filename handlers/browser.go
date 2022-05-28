@@ -37,22 +37,3 @@ func (handler *Browser) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConf
 func (handler *Browser) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
 	runCommand("xdg-open " + key.Options.(BrowserOptions).Url)
 }
-
-func (browserOptions *BrowserOptions) GetIcon() string {
-	return browserOptions.Icon
-}
-func (browserOptions *BrowserOptions) GetText() string {
-	return browserOptions.Text
-}
-func (browserOptions *BrowserOptions) GetTextSize() int {
-	return browserOptions.TextSize
-}
-func (browserOptions *BrowserOptions) GetTextAlignment() string {
-	return browserOptions.TextAlignment
-}
-func (browserOptions *BrowserOptions) GetBackgroundColor() string {
-	return browserOptions.BackgroundColor
-}
-func (browserOptions *BrowserOptions) GetTextColor() string {
-	return browserOptions.TextColor
-}
