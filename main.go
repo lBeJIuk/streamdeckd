@@ -63,6 +63,7 @@ func initHandlers(dev *utils.VirtualDev) {
 		&handlers.CommandHandler,
 		&handlers.BrowserHandler,
 		&handlers.ChangePageHandler,
+		&handlers.BrightnessHandler,
 	}
 }
 
