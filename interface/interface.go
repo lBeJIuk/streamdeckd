@@ -47,9 +47,6 @@ func RenderPage(dev *utils.VirtualDev, page int) {
 }
 
 func renderKey(dev *utils.VirtualDev, currentKey *api.KeyConfig, keyIndex int, page int) {
-	handler, err := dev.GetHandler(currentKey)
-	if err != nil {
-		return
-	}
+	handler := dev.GetHandler(currentKey)
 	handler.RenderHandlerKey(dev, currentKey, keyIndex, page)
 }

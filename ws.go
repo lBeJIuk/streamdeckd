@@ -28,6 +28,9 @@ func InitWS() {
 				if err != nil {
 					log.Printf("Error on ReadClientData: %v", err)
 				}
+				if rawMsg == nil {
+					return
+				}
 				msg := new(Message)
 				err = json.Unmarshal(rawMsg, msg)
 				if err != nil {

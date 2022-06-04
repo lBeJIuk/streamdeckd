@@ -68,6 +68,7 @@ func initHandlers(dev *utils.VirtualDev) {
 		&handlers.BrowserHandler,
 		&handlers.ChangePageHandler,
 		&handlers.BrightnessHandler,
+		&handlers.DummyHandler,
 	}
 }
 
@@ -425,11 +426,6 @@ func SaveConfig() error {
 }
 
 func HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
-	SaveConfig()
-	handler, err := dev.GetHandler(key)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	handler := dev.GetHandler(key)
 	handler.HandleInput(dev, key, page)
 }

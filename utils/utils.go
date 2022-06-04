@@ -3,10 +3,10 @@ package utils
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"github.com/unix-streamdeck/api"
 	streamdeck "github.com/unix-streamdeck/driver"
 	"image"
+
 	"strings"
 )
 
@@ -24,22 +24,14 @@ type Handler interface {
 	RenderHandlerKey(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int)
 	HandleInput(dev *VirtualDev, key *api.KeyConfig, page int)
 }
-type DummyHandler struct{}
 
-func (handler *DummyHandler) GetType() string {
-	return ""
-}
-func (handler *DummyHandler) RenderHandlerKey(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-}
-func (handler *DummyHandler) HandleInput(dev *VirtualDev, key *api.KeyConfig, page int) {}
-
-func (vDev *VirtualDev) GetHandler(key *api.KeyConfig) (Handler, error) {
+func (vDev *VirtualDev) GetHandler(key *api.KeyConfig) Handler {
 	for _, handler := range vDev.Handlers {
 		if handler.GetType() == key.Type {
-			return handler, nil
+			return handler
 		}
 	}
-	return &DummyHandler{}, errors.New("No handler found.")
+	return nil
 }
 
 func ParseIcon(base64Image string) (image.Image, error) {
