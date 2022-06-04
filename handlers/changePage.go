@@ -24,19 +24,20 @@ func (handler *ChangePage) GetType() string {
 	return handler.Type
 }
 func (handler *ChangePage) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-	var options ChangePageOptions
+	var options *ChangePageOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
 		if err != nil {
 			return
 		}
 		key.Options = options
+	} else {
+		options = key.Options.(*ChangePageOptions)
 	}
-	options = key.Options.(ChangePageOptions)
-	setKeyImage(dev, key, keyIndex, page, &options)
+	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *ChangePage) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
-	var options ChangePageOptions
-	options = key.Options.(ChangePageOptions)
+	var options *ChangePageOptions
+	options = key.Options.(*ChangePageOptions)
 	_interface.RenderPage(dev, options.Page-1)
 }

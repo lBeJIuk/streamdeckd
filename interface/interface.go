@@ -41,7 +41,7 @@ func RenderPage(dev *utils.VirtualDev, page int) {
 	currentPage := dev.Config[page]
 	for i := 0; i < len(currentPage); i++ {
 		currentKey := &currentPage[i]
-		go renderKey(dev, currentKey, i, page)
+		renderKey(dev, currentKey, i, page)
 	}
 	//EmitPage(dev, page)
 }

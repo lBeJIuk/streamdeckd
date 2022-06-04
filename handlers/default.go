@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"github.com/lBeJIuk/streamdeckd/utils"
 	"github.com/unix-streamdeck/api"
@@ -30,6 +28,7 @@ type DefaultOptionsStruct struct {
 }
 type DefaultOptions interface {
 	GetIcon() string
+	SetIcon(icon string)
 	GetBackgroundColor() string
 	GetText() string
 	GetTextColor() string
@@ -39,6 +38,9 @@ type DefaultOptions interface {
 
 func (defaultOptions *DefaultOptionsStruct) GetIcon() string {
 	return defaultOptions.Icon
+}
+func (defaultOptions *DefaultOptionsStruct) SetIcon(icon string) {
+	defaultOptions.Icon = icon
 }
 func (defaultOptions *DefaultOptionsStruct) GetText() string {
 	return defaultOptions.Text
@@ -56,19 +58,6 @@ func (defaultOptions *DefaultOptionsStruct) GetTextColor() string {
 	return defaultOptions.TextColor
 }
 
-func loadImage(dev *utils.VirtualDev, path string) (image.Image, error) {
-	path = strings.Split(path, ",")[1]
-	imgBytes, err := base64.StdEncoding.DecodeString(path)
-	if err != nil {
-		return nil, err
-	}
-	r := bytes.NewReader(imgBytes)
-	img, _, err := image.Decode(r)
-	if err != nil {
-		return nil, err
-	}
-	return api.ResizeImage(img, int(dev.Deck.Pixels)), nil
-}
 func setImage(dev *utils.VirtualDev, img image.Image, i int, page int) {
 	ctx := context.Background()
 	err := sem.Acquire(ctx, 1)
@@ -96,7 +85,7 @@ func setKeyImage(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, opt
 		var img image.Image
 		if icon != "" {
 			var err error
-			img, err = loadImage(dev, options.GetIcon())
+			img, err = utils.ParseIcon(options.GetIcon())
 			if err != nil {
 				log.Println(err)
 				return

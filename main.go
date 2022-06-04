@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -13,10 +15,12 @@ import (
 	"github.com/unix-streamdeck/driver"
 	"golang.org/x/sync/semaphore"
 	_ "image/gif"
+	"image/jpeg"
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -356,7 +360,56 @@ func SaveConfig() error {
 	}
 	defer f.Close()
 	var configString []byte
-	configString, err = json.Marshal(config)
+	for _, deck := range config.Decks {
+		var dev *utils.VirtualDev
+		for vdevs := range devs {
+			if devs[vdevs].Deck.Serial == deck.Serial {
+				dev = devs[vdevs]
+				break
+			}
+		}
+		for _, profile := range deck.Profiles {
+			for _, page := range profile.Pages {
+				for keyIndex, key := range page {
+					if key.Options == nil {
+						continue
+					}
+					options := key.Options.(handlers.DefaultOptions)
+					if options.GetIcon() == "" {
+						continue
+					}
+					img, err := utils.ParseIcon(options.GetIcon())
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					img = api.ResizeImage(img, int(dev.Deck.Pixels))
+					var base64Encoding string
+					imgBuf := new(bytes.Buffer)
+					err = jpeg.Encode(imgBuf, img, nil)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					// Determine the content type of the image file
+					mimeType := http.DetectContentType(imgBuf.Bytes())
+					// Prepend the appropriate URI scheme header depending on the MIME type
+					switch mimeType {
+					case "image/jpeg":
+						base64Encoding += "data:image/jpeg;base64,"
+					case "image/png":
+						base64Encoding += "data:image/png;base64,"
+					}
+					// Append the base64 encoded output
+					base64Encoding += base64.StdEncoding.EncodeToString(imgBuf.Bytes())
+					options.SetIcon(base64Encoding)
+					rawOption, _ := json.Marshal(options)
+					page[keyIndex].RawOptions = rawOption
+				}
+			}
+		}
+	}
+	configString, err = json.MarshalIndent(config, "", "\t")
 	if err != nil {
 		return err
 	}
@@ -372,6 +425,7 @@ func SaveConfig() error {
 }
 
 func HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+	SaveConfig()
 	handler, err := dev.GetHandler(key)
 	if err != nil {
 		log.Println(err)

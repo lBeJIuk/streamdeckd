@@ -23,17 +23,18 @@ func (handler *Browser) GetType() string {
 	return handler.Type
 }
 func (handler *Browser) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-	var options BrowserOptions
+	var options *BrowserOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
 		if err != nil {
 			return
 		}
 		key.Options = options
+	} else {
+		options = key.Options.(*BrowserOptions)
 	}
-	options = key.Options.(BrowserOptions)
-	setKeyImage(dev, key, keyIndex, page, &options)
+	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *Browser) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
-	runCommand("xdg-open " + key.Options.(BrowserOptions).Url)
+	runCommand("xdg-open " + key.Options.(*BrowserOptions).Url)
 }

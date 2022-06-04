@@ -1,9 +1,13 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"github.com/unix-streamdeck/api"
 	streamdeck "github.com/unix-streamdeck/driver"
+	"image"
+	"strings"
 )
 
 type VirtualDev struct {
@@ -36,4 +40,18 @@ func (vDev *VirtualDev) GetHandler(key *api.KeyConfig) (Handler, error) {
 		}
 	}
 	return &DummyHandler{}, errors.New("No handler found.")
+}
+
+func ParseIcon(base64Image string) (image.Image, error) {
+	base64Image = strings.Split(base64Image, ",")[1]
+	imgBytes, err := base64.StdEncoding.DecodeString(base64Image)
+	if err != nil {
+		return nil, err
+	}
+	r := bytes.NewReader(imgBytes)
+	img, _, err := image.Decode(r)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }

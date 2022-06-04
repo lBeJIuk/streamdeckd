@@ -24,20 +24,21 @@ func (handler *Brightness) GetType() string {
 	return handler.Type
 }
 func (handler *Brightness) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-	var options BrightnessOptions
+	var options *BrightnessOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
 		if err != nil {
 			return
 		}
 		key.Options = options
+	} else {
+		options = key.Options.(*BrightnessOptions)
 	}
-	options = key.Options.(BrightnessOptions)
-	setKeyImage(dev, key, keyIndex, page, &options)
+	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *Brightness) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
-	var options BrightnessOptions
-	options = key.Options.(BrightnessOptions)
+	var options *BrightnessOptions
+	options = key.Options.(*BrightnessOptions)
 	err := dev.Deck.SetBrightness(uint8(options.Brightness))
 	if err != nil {
 		log.Println(err)
