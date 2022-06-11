@@ -18,10 +18,22 @@ var DummyHandler = Dummy{
 func (handler *Dummy) GetType() string {
 	return ""
 }
+func (handler *Dummy) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
+	if key.Options == nil {
+		key.Options = &DefaultOptionsStruct{}
+		img := image.NewRGBA(image.Rect(0, 0, int(dev.Deck.Pixels), int(dev.Deck.Pixels)))
+		draw.Draw(img, img.Bounds(), image.Black, image.Point{}, draw.Src)
+		key.CachedImage = img
+	}
+}
+
+func (handler *Dummy) RenderPressedHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+	setPressedKeyImage(dev, key, keyIndex, page, key.Options.(DefaultOptions))
+}
+
 func (handler *Dummy) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
-	img := image.NewRGBA(image.Rect(0, 0, int(dev.Deck.Pixels), int(dev.Deck.Pixels)))
-	draw.Draw(img, img.Bounds(), image.Black, image.ZP, draw.Src)
-	setImage(dev, img, keyIndex, page)
+	prepareImages(dev, key, keyIndex, page, key.Options.(DefaultOptions))
+	setKeyImage(dev, key, keyIndex, page, key.Options.(DefaultOptions))
 }
 
 func (handler *Dummy) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {}

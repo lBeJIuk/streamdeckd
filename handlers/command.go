@@ -7,6 +7,7 @@ import (
 )
 
 type Command struct {
+	Dummy
 	Type string `json:"type"`
 }
 
@@ -26,7 +27,8 @@ func (c *CommandOptions) GetIcon() string {
 func (handler *Command) GetType() string {
 	return handler.Type
 }
-func (handler *Command) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+
+func (handler *Command) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 	var options *CommandOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
@@ -34,10 +36,7 @@ func (handler *Command) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConf
 			return
 		}
 		key.Options = options
-	} else {
-		options = key.Options.(*CommandOptions)
 	}
-	setKeyImage(dev, key, keyIndex, page, options)
 }
 
 func (handler *Command) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {

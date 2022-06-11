@@ -127,10 +127,14 @@ func listen(dev *utils.VirtualDev) {
 				disconnect(dev)
 				return
 			}
+			handler := dev.GetHandler(&dev.Config[dev.Page][k.Index])
 			if k.Pressed == true {
 				if len(dev.Config)-1 >= dev.Page && len(dev.Config[dev.Page])-1 >= int(k.Index) {
+					handler.RenderPressedHandlerKey(dev, &dev.Config[dev.Page][k.Index], int(k.Index), dev.Page)
 					HandleInput(dev, &dev.Config[dev.Page][k.Index], dev.Page)
 				}
+			} else {
+				handler.RenderHandlerKey(dev, &dev.Config[dev.Page][k.Index], int(k.Index), dev.Page)
 			}
 		}
 	}

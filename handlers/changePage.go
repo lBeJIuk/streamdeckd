@@ -8,6 +8,7 @@ import (
 )
 
 type ChangePage struct {
+	Dummy
 	Type string `json:"type"`
 }
 
@@ -23,7 +24,7 @@ type ChangePageOptions struct {
 func (handler *ChangePage) GetType() string {
 	return handler.Type
 }
-func (handler *ChangePage) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+func (handler *ChangePage) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 	var options *ChangePageOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
@@ -31,10 +32,7 @@ func (handler *ChangePage) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyC
 			return
 		}
 		key.Options = options
-	} else {
-		options = key.Options.(*ChangePageOptions)
 	}
-	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *ChangePage) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
 	var options *ChangePageOptions

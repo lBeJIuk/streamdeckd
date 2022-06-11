@@ -79,42 +79,82 @@ func setImage(dev *utils.VirtualDev, img image.Image, i int, page int) {
 		}
 	}
 }
-func setKeyImage(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, options DefaultOptions) {
+
+func prepareImages(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, options DefaultOptions) {
 	if key.CachedImage == nil {
-		icon := options.GetIcon()
-		var img image.Image
-		if icon != "" {
-			var err error
-			img, err = utils.ParseIcon(options.GetIcon())
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		} else {
-			simpleImg := image.NewRGBA(image.Rect(0, 0, int(dev.Deck.Pixels), int(dev.Deck.Pixels)))
-			backgroundColor, err := parseHexColor(options.GetBackgroundColor())
-			if err != nil {
-				backgroundColor = color.RGBA{0, 0, 0, 0xff}
-			}
-			draw.Draw(simpleImg, simpleImg.Bounds(), image.NewUniform(backgroundColor), image.Point{}, draw.Src)
-			img = simpleImg
-		}
-		if options.GetText() != "" {
-			fontColor, err := parseHexColor(options.GetTextColor())
-			if err != nil {
-				fontColor = color.RGBA{255, 255, 255, 0xff}
-			}
-			imgWithText, err := api.DrawText(img, options.GetText(), options.GetTextSize(), options.GetTextAlignment(), fontColor)
-			if err != nil {
-				log.Println(err)
-			} else {
-				img = imgWithText
-			}
+		img, err := createImg(options, int(dev.Deck.Pixels))
+		if err != nil {
+			log.Println(err)
+			return
 		}
 		key.CachedImage = img
 	}
+	if key.CachedPressedImage == nil {
+		img, err := createImg(options, int(dev.Deck.Pixels))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		border := 7
+		resizedImg := api.ResizeImage(img, int(dev.Deck.Pixels)-border)
+		if tmpImg, ok := img.(*image.RGBA); ok {
+			for x := 0; x < int(dev.Deck.Pixels); x++ {
+				for y := 0; y < int(dev.Deck.Pixels); y++ {
+					if (x < border || x > int(dev.Deck.Pixels)-border) || (y < border || y > int(dev.Deck.Pixels)-border) {
+						// Draw borders
+						tmpImg.Set(x, y, image.Black)
+					} else {
+						// Draw downscaled image
+						tmpImg.Set(x, y, resizedImg.At(x-border, y-border))
+					}
+				}
+			}
+		}
+		key.CachedPressedImage = img
+	}
+}
+
+func createImg(options DefaultOptions, size int) (image.Image, error) {
+	icon := options.GetIcon()
+	var img image.Image
+	if icon != "" {
+		var err error
+		img, err = utils.ParseIcon(options.GetIcon())
+		if err != nil {
+			log.Println(err)
+			return nil, err
+		}
+	} else {
+		simpleImg := image.NewRGBA(image.Rect(0, 0, size, size))
+		backgroundColor, err := parseHexColor(options.GetBackgroundColor())
+		if err != nil {
+			backgroundColor = color.RGBA{0, 0, 0, 0xff}
+		}
+		draw.Draw(simpleImg, simpleImg.Bounds(), image.NewUniform(backgroundColor), image.Point{}, draw.Src)
+		img = simpleImg
+	}
+	if options.GetText() != "" {
+		fontColor, err := parseHexColor(options.GetTextColor())
+		if err != nil {
+			fontColor = color.RGBA{255, 255, 255, 0xff}
+		}
+		imgWithText, err := api.DrawText(img, options.GetText(), options.GetTextSize(), options.GetTextAlignment(), fontColor)
+		if err != nil {
+			log.Println(err)
+		} else {
+			img = imgWithText
+		}
+	}
+	return img, nil
+}
+func setKeyImage(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, options DefaultOptions) {
 	if key.CachedImage != nil {
 		setImage(dev, key.CachedImage, i, page)
+	}
+}
+func setPressedKeyImage(dev *utils.VirtualDev, key *api.KeyConfig, i int, page int, options DefaultOptions) {
+	if key.CachedPressedImage != nil {
+		setImage(dev, key.CachedPressedImage, i, page)
 	}
 }
 func parseHexColor(s string) (c color.RGBA, err error) {

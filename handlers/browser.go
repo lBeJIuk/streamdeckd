@@ -7,6 +7,7 @@ import (
 )
 
 type Browser struct {
+	Dummy
 	Type string `json:"type"`
 }
 
@@ -22,7 +23,8 @@ type BrowserOptions struct {
 func (handler *Browser) GetType() string {
 	return handler.Type
 }
-func (handler *Browser) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+
+func (handler *Browser) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 	var options *BrowserOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
@@ -30,10 +32,7 @@ func (handler *Browser) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConf
 			return
 		}
 		key.Options = options
-	} else {
-		options = key.Options.(*BrowserOptions)
 	}
-	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *Browser) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
 	runCommand("xdg-open " + key.Options.(*BrowserOptions).Url)

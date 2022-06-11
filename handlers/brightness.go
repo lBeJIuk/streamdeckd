@@ -8,6 +8,7 @@ import (
 )
 
 type Brightness struct {
+	Dummy
 	Type string `json:"type"`
 }
 
@@ -23,7 +24,7 @@ type BrightnessOptions struct {
 func (handler *Brightness) GetType() string {
 	return handler.Type
 }
-func (handler *Brightness) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+func (handler *Brightness) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 	var options *BrightnessOptions
 	if key.Options == nil {
 		err := json.Unmarshal(key.RawOptions, &options)
@@ -31,10 +32,7 @@ func (handler *Brightness) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyC
 			return
 		}
 		key.Options = options
-	} else {
-		options = key.Options.(*BrightnessOptions)
 	}
-	setKeyImage(dev, key, keyIndex, page, options)
 }
 func (handler *Brightness) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
 	var options *BrightnessOptions
