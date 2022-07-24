@@ -91,6 +91,7 @@ func attemptConnection() {
 		dev, _ = openDevice()
 		if dev.IsOpen {
 			initHandlers(dev)
+			_interface.PrepareConfig(dev, dev.Page)
 			_interface.RenderPage(dev, dev.Page)
 			found := false
 			for i := range sDInfo {
@@ -332,6 +333,7 @@ func SetConfig(configString string) error {
 				break
 			}
 		}
+		_interface.PrepareConfig(dev, devs[s].Page)
 		_interface.RenderPage(dev, devs[s].Page)
 	}
 	return nil
@@ -353,6 +355,7 @@ func ReloadConfig() error {
 				break
 			}
 		}
+		_interface.PrepareConfig(dev, devs[s].Page)
 		_interface.RenderPage(dev, devs[s].Page)
 	}
 	return nil
@@ -376,6 +379,8 @@ func SaveConfig() error {
 		for _, profile := range deck.Profiles {
 			for _, page := range profile.Pages {
 				for keyIndex, key := range page {
+					handler := dev.GetHandler(&key)
+					handler.PrepareKey(dev, &key)
 					if key.Options == nil {
 						continue
 					}
@@ -384,32 +389,35 @@ func SaveConfig() error {
 						continue
 					}
 					img, err := utils.ParseIcon(options.GetIcon())
-					if err != nil {
-						log.Println(err)
-						continue
+					if img.Bounds().Dy() != int(dev.Deck.Pixels) || img.Bounds().Dx() != int(dev.Deck.Pixels) {
+						if err != nil {
+							log.Println(err)
+							continue
+						}
+						img.Bounds()
+						img = api.ResizeImage(img, int(dev.Deck.Pixels))
+						var base64Encoding string
+						imgBuf := new(bytes.Buffer)
+						err = jpeg.Encode(imgBuf, img, nil)
+						if err != nil {
+							log.Println(err)
+							continue
+						}
+						// Determine the content type of the image file
+						mimeType := http.DetectContentType(imgBuf.Bytes())
+						// Prepend the appropriate URI scheme header depending on the MIME type
+						switch mimeType {
+						case "image/jpeg":
+							base64Encoding += "data:image/jpeg;base64,"
+						case "image/png":
+							base64Encoding += "data:image/png;base64,"
+						}
+						// Append the base64 encoded output
+						base64Encoding += base64.StdEncoding.EncodeToString(imgBuf.Bytes())
+						options.SetIcon(base64Encoding)
+						rawOption, _ := json.Marshal(options)
+						page[keyIndex].RawOptions = rawOption
 					}
-					img = api.ResizeImage(img, int(dev.Deck.Pixels))
-					var base64Encoding string
-					imgBuf := new(bytes.Buffer)
-					err = jpeg.Encode(imgBuf, img, nil)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-					// Determine the content type of the image file
-					mimeType := http.DetectContentType(imgBuf.Bytes())
-					// Prepend the appropriate URI scheme header depending on the MIME type
-					switch mimeType {
-					case "image/jpeg":
-						base64Encoding += "data:image/jpeg;base64,"
-					case "image/png":
-						base64Encoding += "data:image/png;base64,"
-					}
-					// Append the base64 encoded output
-					base64Encoding += base64.StdEncoding.EncodeToString(imgBuf.Bytes())
-					options.SetIcon(base64Encoding)
-					rawOption, _ := json.Marshal(options)
-					page[keyIndex].RawOptions = rawOption
 				}
 			}
 		}

@@ -46,8 +46,16 @@ func RenderPage(dev *utils.VirtualDev, page int) {
 	//EmitPage(dev, page)
 }
 
+func PrepareConfig(dev *utils.VirtualDev, page int) {
+	currentPage := dev.Config[page]
+	for i := 0; i < len(currentPage); i++ {
+		currentKey := &currentPage[i]
+		handler := dev.GetHandler(currentKey)
+		handler.PrepareKey(dev, currentKey)
+	}
+}
+
 func RenderKey(dev *utils.VirtualDev, currentKey *api.KeyConfig, keyIndex int, page int) {
 	handler := dev.GetHandler(currentKey)
-	handler.PrepareKey(dev, currentKey)
 	handler.RenderHandlerKey(dev, currentKey, keyIndex, page)
 }
