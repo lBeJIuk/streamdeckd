@@ -34,7 +34,7 @@ func (handler *ChangePage) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig)
 		key.Options = options
 	}
 }
-func (handler *ChangePage) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+func (handler *ChangePage) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
 	var options *ChangePageOptions
 	options = key.Options.(*ChangePageOptions)
 	_interface.PrepareConfig(dev, options.Page-1)

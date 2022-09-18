@@ -34,7 +34,7 @@ func (handler *Brightness) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig)
 		key.Options = options
 	}
 }
-func (handler *Brightness) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+func (handler *Brightness) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
 	var options *BrightnessOptions
 	options = key.Options.(*BrightnessOptions)
 	err := dev.Deck.SetBrightness(uint8(options.Brightness))

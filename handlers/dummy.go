@@ -36,4 +36,9 @@ func (handler *Dummy) RenderHandlerKey(dev *utils.VirtualDev, key *api.KeyConfig
 	setKeyImage(dev, key, keyIndex, page, key.Options.(DefaultOptions))
 }
 
-func (handler *Dummy) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {}
+func (handler *Dummy) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+}
+
+func (handler *Dummy) UnmountHandler(key *api.KeyConfig) {}
+func (handler *Dummy) MountHandler(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
+}

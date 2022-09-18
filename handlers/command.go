@@ -39,7 +39,7 @@ func (handler *Command) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 	}
 }
 
-func (handler *Command) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+func (handler *Command) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
 	var options *CommandOptions
 	options = key.Options.(*CommandOptions)
 	runCommand(options.Command)

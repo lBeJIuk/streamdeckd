@@ -23,8 +23,10 @@ type Handler interface {
 	GetType() string
 	RenderHandlerKey(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int)
 	RenderPressedHandlerKey(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int)
-	HandleInput(dev *VirtualDev, key *api.KeyConfig, page int)
+	HandleInput(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int)
 	PrepareKey(dev *VirtualDev, key *api.KeyConfig)
+	MountHandler(dev *VirtualDev, key *api.KeyConfig, keyIndex int, page int)
+	UnmountHandler(key *api.KeyConfig)
 }
 
 func (vDev *VirtualDev) GetHandler(key *api.KeyConfig) Handler {

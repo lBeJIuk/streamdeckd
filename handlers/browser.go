@@ -34,6 +34,6 @@ func (handler *Browser) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 		key.Options = options
 	}
 }
-func (handler *Browser) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, page int) {
+func (handler *Browser) HandleInput(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
 	runCommand("xdg-open " + key.Options.(*BrowserOptions).Url)
 }
