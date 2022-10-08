@@ -106,10 +106,7 @@ func (handler *KeyLight) PrepareKey(dev *utils.VirtualDev, key *api.KeyConfig) {
 func (handler *KeyLight) MountHandler(dev *utils.VirtualDev, key *api.KeyConfig, keyIndex int, page int) {
 	currentOption := key.Options.(*KeyLightOptions)
 	switch currentOption.KeyLightAction {
-	case "temperature+":
-	case "temperature-":
-	case "brightness+":
-	case "brightness-":
+	case "temperature+", "temperature-", "brightness+", "brightness-":
 		ticker := time.NewTicker(defaultRefreshInterval)
 		key.TickerQuit = make(chan struct{})
 		go func() {
@@ -134,14 +131,12 @@ func (handler *KeyLight) MountHandler(dev *utils.VirtualDev, key *api.KeyConfig,
 func updateState(key *api.KeyConfig, keyLight keyLightResponse, dev *utils.VirtualDev, keyIndex int, page int) {
 	currentOption := key.Options.(*KeyLightOptions)
 	switch currentOption.KeyLightAction {
-	case "temperature+":
-	case "temperature-":
+	case "temperature+", "temperature-":
 		currentOption.Text = key.TmpString + "\n" + strconv.Itoa(keyLight.Lights[0].Temperature)
 		key.CachedImage = nil
 		key.CachedPressedImage = nil
 		break
-	case "brightness+":
-	case "brightness-":
+	case "brightness+", "brightness-":
 		key.CachedImage = nil
 		key.CachedPressedImage = nil
 		currentOption.Text = key.TmpString + "\n" + strconv.Itoa(keyLight.Lights[0].Brightness)
